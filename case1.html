@@ -1,0 +1,210 @@
+<!doctype html>
+<html lang="zh">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Bomb Grid Probability Demo</title>
+  <style>
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; margin: 24px; line-height: 1.4; }
+    .card { max-width: 820px; border: 1px solid #ddd; border-radius: 14px; padding: 18px 18px; }
+    h1 { font-size: 18px; margin: 0 0 12px; }
+    .row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 12px 0; }
+    label { display: block; font-size: 13px; color: #333; margin-bottom: 6px; }
+    input { width: 100%; padding: 10px 12px; border: 1px solid #bbb; border-radius: 10px; font-size: 14px; }
+    button { padding: 10px 14px; border: 1px solid #222; background: #222; color: white; border-radius: 10px; cursor: pointer; font-size: 14px; }
+    button:disabled { opacity: 0.6; cursor: not-allowed; }
+    .meta { font-size: 13px; color: #444; margin-top: 8px; }
+    .out { margin-top: 14px; padding: 12px; border-radius: 12px; background: #f7f7f7; border: 1px solid #e6e6e6; }
+    .out .grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-top: 10px; }
+    .kpi { background: white; border: 1px solid #e5e5e5; border-radius: 12px; padding: 12px; }
+    .kpi .title { font-size: 12px; color: #666; }
+    .kpi .val { font-size: 18px; font-weight: 650; margin-top: 6px; }
+    .warn { color: #b00020; font-size: 13px; margin-top: 10px; }
+    code { background: #fff; padding: 2px 6px; border-radius: 8px; border: 1px solid #eee; }
+    .small { font-size: 12px; color: #666; margin-top: 8px; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>炸弹格抽取：平局 / A胜 / B胜 概率计算</h1>
+
+    <div class="row">
+      <div>
+        <label>棋盘边长 a（总格子 N = a²）</label>
+        <input id="a" type="number" min="1" step="1" value="10" />
+      </div>
+      <div>
+        <label>炸弹格数量 n（1 ≤ n ≤ N）</label>
+        <input id="n" type="number" min="1" step="1" value="5" />
+      </div>
+    </div>
+
+    <button id="btn">计算概率</button>
+
+    <div class="meta" id="meta"></div>
+
+    <div class="out" id="out" style="display:none;">
+      <div><strong>结果</strong></div>
+      <div class="grid">
+        <div class="kpi">
+          <div class="title">平局 P(tie)</div>
+          <div class="val" id="pTie"></div>
+        </div>
+        <div class="kpi">
+          <div class="title">A胜 P(A win)</div>
+          <div class="val" id="pA"></div>
+        </div>
+        <div class="kpi">
+          <div class="title">B胜 P(B win)</div>
+          <div class="val" id="pB"></div>
+        </div>
+      </div>
+
+      <div class="small">
+        使用公式：<br/>
+        <code>P(tie)= Σ_{t=n..N} [C(t-1,n-1)^2 / C(N,n)^2]</code>，
+        <code>P(A)=P(B)=(1-P(tie))/2</code>。<br/>
+        数值实现采用 log-factorial + log-sum-exp，避免组合数溢出。
+      </div>
+      <div class="warn" id="warn" style="display:none;"></div>
+    </div>
+  </div>
+
+<script>
+  function isInt(x) { return Number.isFinite(x) && Math.floor(x) === x; }
+
+  // Build log-factorial table up to N: logFact[k] = ln(k!)
+  function buildLogFact(N) {
+    const logFact = new Float64Array(N + 1);
+    logFact[0] = 0.0;
+    for (let k = 1; k <= N; k++) logFact[k] = logFact[k - 1] + Math.log(k);
+    return logFact;
+  }
+
+  function logChoose(logFact, n, k) {
+    if (k < 0 || k > n) return -Infinity;
+    return logFact[n] - logFact[k] - logFact[n - k];
+  }
+
+  // stable log-sum-exp of two logs
+  function logAddExp(logA, logB) {
+    if (logA === -Infinity) return logB;
+    if (logB === -Infinity) return logA;
+    const m = Math.max(logA, logB);
+    return m + Math.log(Math.exp(logA - m) + Math.exp(logB - m));
+  }
+
+  function fmt(p) {
+    // show both decimal + percentage
+    const dec = p.toPrecision(12);
+    const pct = (p * 100).toFixed(8) + "%";
+    return `${dec}  (${pct})`;
+  }
+
+  function compute(a, n) {
+    const N = a * a;
+
+    // log factorial
+    const logFact = buildLogFact(N);
+
+    const logCNn = logChoose(logFact, N, n);
+    // logTie = log( Σ exp( 2*logC(t-1,n-1) - 2*logC(N,n) ) )
+    let logSum = -Infinity;
+
+    for (let t = n; t <= N; t++) {
+      const logC = logChoose(logFact, t - 1, n - 1);
+      const logTerm = 2 * logC - 2 * logCNn;
+      logSum = logAddExp(logSum, logTerm);
+    }
+
+    const pTie = Math.exp(logSum);
+    const pA = (1 - pTie) / 2;
+    const pB = pA;
+
+    return { N, pTie, pA, pB };
+  }
+
+  function setText(id, txt) { document.getElementById(id).textContent = txt; }
+
+  const aEl = document.getElementById("a");
+  const nEl = document.getElementById("n");
+  const btn = document.getElementById("btn");
+  const out = document.getElementById("out");
+  const warn = document.getElementById("warn");
+  const meta = document.getElementById("meta");
+
+  function validate() {
+    const a = Number(aEl.value);
+    const n = Number(nEl.value);
+
+    if (!isInt(a) || a < 1) return { ok: false, msg: "a 必须是 ≥1 的整数。" };
+    const N = a * a;
+    if (!isInt(n) || n < 1 || n > N) return { ok: false, msg: `n 必须是 1..N 之间的整数（N=${N}）。` };
+
+    // performance note: O(N)=O(a^2). Provide a soft warning for very large N.
+    let note = "";
+    if (N > 2_000_000) note = "提示：N 很大（>2,000,000），浏览器可能会变慢。";
+
+    return { ok: true, a, n, N, note };
+  }
+
+  function run() {
+    const v = validate();
+    if (!v.ok) {
+      out.style.display = "none";
+      meta.textContent = "";
+      alert(v.msg);
+      return;
+    }
+    btn.disabled = true;
+    btn.textContent = "计算中…";
+
+    // Let UI refresh before heavy loop
+    setTimeout(() => {
+      try {
+        meta.textContent = `参数：a=${v.a}, n=${v.n}, N=a²=${v.N}。`;
+        const { pTie, pA, pB } = compute(v.a, v.n);
+
+        out.style.display = "";
+        setText("pTie", fmt(pTie));
+        setText("pA", fmt(pA));
+        setText("pB", fmt(pB));
+
+        if (v.note) {
+          warn.style.display = "";
+          warn.textContent = v.note;
+        } else {
+          warn.style.display = "none";
+          warn.textContent = "";
+        }
+      } catch (e) {
+        out.style.display = "none";
+        alert("计算失败：" + (e?.message ?? String(e)));
+      } finally {
+        btn.disabled = false;
+        btn.textContent = "计算概率";
+      }
+    }, 10);
+  }
+
+  btn.addEventListener("click", run);
+
+  // optional: auto-run when inputs change
+  function clampN() {
+    const a = Number(aEl.value);
+    if (!Number.isFinite(a) || a < 1) return;
+    const N = Math.floor(a) * Math.floor(a);
+    nEl.max = String(N);
+    if (Number(nEl.value) > N) nEl.value = String(N);
+  }
+
+  aEl.addEventListener("input", () => { clampN(); });
+  nEl.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") run();
+  });
+
+  // initial
+  clampN();
+</script>
+</body>
+</html>

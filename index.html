@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="zh">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Bomb Grid — Your Prob to WIN! 女巫的毒药 实时胜率版</title>
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <div class="asyncNote" id="asyncNote" style="display:none;"></div>
+  <header class="topbar">
+    <div class="brand">
+      <div class="logo"></div>
+      <div>
+        <div class="title" data-i18n="appTitle">Bomb Grid -- 女巫的毒药🫣</div>
+        
+      </div>
+    </div>
+
+    <div class="controls">
+      <div class="field">
+        <label for="langSelect" data-i18n="langLabel">语言 / Language</label>
+        <select id="langSelect" class="select">
+          <option value="zh">中文</option>
+          <option value="en">English</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="aInput" data-i18n="aLabel">棋盘边长 a（≤20）</label>
+        <input id="aInput" type="number" min="1" max="20" step="1" value="3" />
+      </div>
+      <div class="field">
+        <label for="nInput" data-i18n="nLabel">炸弹数 n（≤a²）</label>
+        <input id="nInput" type="number" min="0" step="1" value="3" />
+      </div>
+      <button id="applyBtn" class="btn primary" data-i18n="newGame">New Game</button>
+    </div>
+  </header>
+
+  <main class="stage">
+    <section class="boardWrap boardA">
+      <div class="boardHeader">
+        <div class="chip">A</div>
+        <div class="boardMeta" id="metaA"></div>
+      </div>
+      <div class="board jelly hint-on" id="boardA" aria-label="Board A"></div>
+    </section>
+
+    <section class="centerPanel jelly centerPanel">
+      <div class="panelTitle" data-i18n="panelTitle">实时胜率（条件概率）</div>
+
+      <div class="kpis">
+        <div class="kpi">
+          <div class="kpiLabel" data-i18n="aWin">A胜</div>
+          <div class="kpiValue" id="pA">—</div>
+        </div>
+        <div class="kpi">
+          <div class="kpiLabel" data-i18n="tie">平</div>
+          <div class="kpiValue" id="pTie">—</div>
+        </div>
+        <div class="kpi">
+          <div class="kpiLabel" data-i18n="bWin">B胜</div>
+          <div class="kpiValue" id="pB">—</div>
+        </div>
+      </div>
+
+      <div class="legend">
+        <div class="legendItem"><span class="swatch unknown"></span> <span data-i18n="legendUnknown">未知</span></div>
+        <div class="legendItem"><span class="swatch safe"></span> <span data-i18n="legendSafe">安全（轻点）</span></div>
+        <div class="legendItem"><span class="swatch bomb"></span> <span data-i18n="legendBomb">炸弹（长按）</span></div>
+      </div>
+
+      <div class="warn" id="warnBox" style="display:none;"></div>
+    </section>
+
+    <section class="boardWrap boardB">
+      <div class="boardHeader">
+        <div class="chip">B</div>
+        <div class="boardMeta" id="metaB"></div>
+      </div>
+      <div class="board jelly hint-on" id="boardB" aria-label="Board B"></div>
+    </section>
+  </main>
+
+  <footer class="bottombar">
+    <button id="resetBtn" class="btn" data-i18n="reset">Reset（清空标记）</button>
+    
+  </footer>
+
+  <div id="resultModal" class="modal" aria-hidden="true">
+    <div class="modalBackdrop" data-close="1"></div>
+    <div class="modalCard jelly">
+      <div class="modalBadge"></div>
+      <div class="modalTitle" id="resultTitle" data-i18n="gameOver">游戏结束</div>
+      <div class="modalSub" id="resultSub">—</div>
+      <div class="modalActions">
+        <button id="closeResultBtn" class="btn" data-i18n="continue">继续</button>
+        <button id="restartBtn" class="btn primary" data-i18n="restart">重新开始</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="./app.js"></script>
+</body>
+</html>
